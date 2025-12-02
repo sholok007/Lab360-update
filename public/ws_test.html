@@ -1,0 +1,33 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebSocket Test</title>
+</head>
+<body>
+  <h1>Laravel Echo WS Test</h1>
+  <script>
+    const ws = new WebSocket("ws://10.0.0.169:6001/app/laravel-websocket?protocol=7&client=js&version=7.2.0&flash=false");
+
+    ws.onopen = () => {
+      console.log("[Browser WS] Connected");
+      const subscribeMsg = { event: "pusher:subscribe", data: { channel: "machine.8C:4F:00:AC:26:EC" } };
+      ws.send(JSON.stringify(subscribeMsg));
+      console.log("[Browser WS] Subscribed to channel: machine.8C:4F:00:AC:26:EC");
+    };
+
+    ws.onmessage = (msg) => {
+      console.log("[Browser WS] Message received:", msg.data);
+    };
+
+    ws.onerror = (err) => {
+      console.error("[Browser WS] Error:", err);
+    };
+
+    ws.onclose = () => {
+      console.log("[Browser WS] Disconnected");
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 Device Listener Test</title>
+    <style>
+        body { font-family: monospace; background: #0d1117; color: #00ff00; padding: 20px; }
+        .log { background: #161b22; border: 1px solid #30363d; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .log div { margin: 5px 0; }
+        .connected { color: #00ff00; }
+        .error { color: #ff6b6b; }
+        .info { color: #58a6ff; }
+        .command { color: #ffd700; }
+        h1 { color: #58a6ff; }
+        input { background: #161b22; color: #fff; border: 1px solid #30363d; padding: 8px; width: 300px; }
+        button { background: #238636; color: #fff; border: none; padding: 8px 16px; cursor: pointer; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+    <h1>🔌 ESP32 Device Channel Listener</h1>
+    <div>
+        <label>MAC ID: </label>
+        <input type="text" id="macInput" value="8C:4F:00:AC:26:EC" placeholder="Enter MAC ID">
+        <button onclick="connect()">Connect</button>
+        <button style="margin-left:10px;background:#ff5555;" onclick="clearLog()">Clear Log</button>
+    </div>
+    <div class="log" id="logWindow"></div>
+
+    <script src="https://js.pusher.com/7.2/pusher.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/laravel-echo/dist/echo.iife.js"></script>
+
+    <script>
+
+        const logWindow = document.getElementById('logWindow');
+        let echo = null;
+
+        function log(message, className = 'info') {
+            const div = document.createElement('div');
+            div.className = className;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logWindow.appendChild(div);
+            logWindow.scrollTop = logWindow.scrollHeight;
+        }
+
+        function clearLog() {
+            logWindow.innerHTML = '';
+        }
+
+        function connect() {
+            const macId = document.getElementById('macInput').value.trim();
+            if (!macId) return alert('Enter MAC ID');
+
+            const macIdSafe = macId.replace(/:/g, '');
+            
+            log('🔧 Initializing WebSocket connection...', 'info');
+            log(`📍 Connecting to: ws://10.0.0.169:9000`, 'info');
+
+            window.Pusher = Pusher;
+
+            echo = new Echo({
+                broadcaster: 'pusher',
+                key: 'localkey',
+                wsHost: '10.0.0.169',
+                wsPort: 9000,
+                forceTLS: false,
+                enabledTransports: ['ws', 'wss'],
+                disableStats: true,
+            });
+
+            // Listen for ALL raw messages from the WebSocket
+            setTimeout(() => {
+                if (echo && echo.connector && echo.connector.pusher && echo.connector.pusher.connection) {
+                    echo.connector.pusher.connection.bind('message', function(message) {
+                        log(`RAW MESSAGE: ${typeof message === 'string' ? message : JSON.stringify(message)}`, 'error');
+                    });
+                }
+            }, 1200);
+
+            // Monitor connection state
+            setTimeout(() => {
+                if (echo && echo.connector && echo.connector.pusher) {
+                    const state = echo.connector.pusher.connection.state;
+                    log(`🔌 Connection State: ${state}`, state === 'connected' ? 'connected' : 'error');
+                }
+            }, 1000);
+
+            // Subscribe to device channel (commands TO ESP32)
+            const deviceChannel = `device.${macIdSafe}`;
+            log(`📡 Subscribing to channel: ${deviceChannel}`, 'info');
+            
+            echo.channel(deviceChannel)
+                .listen('.device.command', (e) => {
+                    log(`📤 COMMAND TO ESP32: ${JSON.stringify(e)}`, 'command');
+                });
+
+            // Also subscribe to machine channel (data FROM ESP32)
+            const machineChannel = `machine.${macIdSafe}`;
+            log(`📡 Subscribing to channel: ${machineChannel}`, 'info');
+            
+            echo.channel(machineChannel)
+                .listen('.device.data', (e) => {
+                    log(`📥 DATA FROM ESP32: ${JSON.stringify(e)}`, 'connected');
+                })
+                .listen('.device.acknowledged', (e) => {
+                    log(`✅ ECHO FROM ESP32: ${JSON.stringify(e)}`, 'connected');
+                });
+
+            log(`✅ Listener ready for MAC: ${macId}`, 'connected');
+            log(`ℹ️  Now click the Start button in the calibrate page and watch for commands here`, 'info');
+        }
+
+        // Auto-connect on load
+        window.onload = () => {
+            setTimeout(connect, 500);
+        };
+    </script>
+</body>
+</html>

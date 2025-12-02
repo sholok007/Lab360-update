@@ -1,0 +1,167 @@
+ESP32 needs to subscribe to BOTH channels:
+
+1. machine.{MAC} - For broadcasting data FROM ESP32 to server
+2. device.{MAC}  - For receiving commands FROM server to ESP32
+
+Update your ESP32 setup() function:
+
+// In your global variables section, add:
+String machineChannel;  // for sending data FROM ESP32
+String deviceChannel;   // for receiving commands TO ESP32
+
+// In setup(), after defining safeMac:
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+
+  // Prepare MAC for channel names (remove colons)
+  safeMac = String(DEVICE_MAC);
+  safeMac.replace(":", "");
+  
+  machineChannel = "machine." + safeMac;  // FROM ESP32 (outgoing data)
+  deviceChannel = "device." + safeMac;    // TO ESP32 (incoming commands)
+
+  // Connect to WiFi
+  connectWiFi();
+
+  // Setup WebSocket
+  if (WiFi.status() == WL_CONNECTED) {
+    setupWebSocket();
+  }
+
+  lastSensorPost = millis();
+  lastHeartbeat = millis();
+  
+  Serial.println();
+  Serial.println("🚀 Setup complete - entering main loop");
+  Serial.println("════════════════════════════════════");
+}
+
+// Update sendPusherSubscribe() to subscribe to BOTH channels:
+void sendPusherSubscribe() {
+  // Subscribe to device channel (commands TO ESP32)
+  StaticJsonDocument<512> doc1;
+  doc1["event"] = "pusher:subscribe";
+  JsonObject data1 = doc1.createNestedObject("data");
+  data1["channel"] = deviceChannel;
+  data1["auth"] = "";
+  
+  String out1;
+  serializeJson(doc1, out1);
+  webSocket.sendTXT(out1);
+  
+  Serial.println();
+  Serial.println("📤 Subscribing to DEVICE channel: " + deviceChannel);
+  Serial.println("   (For receiving commands FROM server)");
+  
+  delay(100);
+  
+  // Subscribe to machine channel (data FROM ESP32)
+  StaticJsonDocument<512> doc2;
+  doc2["event"] = "pusher:subscribe";
+  JsonObject data2 = doc2.createNestedObject("data");
+  data2["channel"] = machineChannel;
+  data2["auth"] = "";
+  
+  String out2;
+  serializeJson(doc2, out2);
+  webSocket.sendTXT(out2);
+  
+  Serial.println();
+  Serial.println("📤 Subscribing to MACHINE channel: " + machineChannel);
+  Serial.println("   (For sending data TO server)");
+  
+  subscribed = true;
+}
+
+// In handleIncomingWebSocketPayload(), handle BOTH event types:
+void handleIncomingWebSocketPayload(const String &payload) {
+  Serial.println();
+  Serial.println("📥 WebSocket Message:");
+  Serial.println("─────────────────────────────────");
+  Serial.println(payload);
+  Serial.println("─────────────────────────────────");
+
+  DynamicJsonDocument doc(JSON_BUFFER_LARGE);
+  DeserializationError err = deserializeJson(doc, payload);
+  
+  if (err) {
+    Serial.print("❌ JSON parse error: ");
+    Serial.println(err.c_str());
+    return;
+  }
+
+  const char* event = doc["event"];
+  if (!event) {
+    Serial.println("⚠️  No event field found");
+    return;
+  }
+
+  Serial.print("📋 Event: ");
+  Serial.println(event);
+
+  // Handle Pusher system events
+  if (strcmp(event, "pusher:connection_established") == 0) {
+    Serial.println("✅ Pusher connection established");
+    return;
+  }
+  
+  if (strcmp(event, "pusher_internal:subscription_succeeded") == 0) {
+    const char* channel = doc["channel"];
+    Serial.print("✅ Successfully subscribed to channel: ");
+    Serial.println(channel ? channel : "unknown");
+    return;
+  }
+
+  // Handle "device.command" events (commands TO ESP32)
+  if (strcmp(event, "device.command") == 0) {
+    Serial.println("🎯 COMMAND RECEIVED FROM SERVER");
+    
+    const char* dataStr = doc["data"];
+    if (!dataStr) {
+      Serial.println("⚠️  No data field in command event");
+      return;
+    }
+
+    DynamicJsonDocument innerDoc(JSON_BUFFER_SMALL);
+    DeserializationError innerErr = deserializeJson(innerDoc, dataStr);
+    
+    if (innerErr) {
+      Serial.print("❌ Command data parse error: ");
+      Serial.println(innerErr.c_str());
+      return;
+    }
+
+    const char* command = innerDoc["command"];
+    if (!command) {
+      Serial.println("⚠️  No command field");
+      return;
+    }
+
+    Serial.print("🚀 Command: ");
+    Serial.println(command);
+
+    // Handle calibration commands
+    if (strcmp(command, "start_reactor_calibrate") == 0) {
+      Serial.println("⚗️  STARTING REACTOR CALIBRATION");
+      // TODO: Start your reactor calibration logic here
+      postDeviceResponse("reactor_calibrate_started", "calibrating");
+      
+    } else if (strcmp(command, "start_cc_calibrate") == 0) {
+      Serial.println("🧪 STARTING CC CALIBRATION");
+      // TODO: Start your CC calibration logic here
+      postDeviceResponse("cc_calibrate_started", "calibrating");
+      
+    } else {
+      Serial.print("⚠️  Unknown command: ");
+      Serial.println(command);
+    }
+    return;
+  }
+
+  // Handle "device.data" events (data updates from server, like reagent locations)
+  if (strcmp(event, "device.data") == 0) {
+    // Your existing handler for reagent_location_update, etc.
+    // Keep your existing code here...
+  }
+}

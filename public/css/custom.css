@@ -1,0 +1,107 @@
+.switch-container {
+  text-align: center;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.switch input {
+  display: none;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #96141a;
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: rgb(5, 54, 79);
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #4caf50;
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.statusText {
+  font-size: 14px;
+  margin: 0;
+  color: red;
+}
+
+.dropdown-item:hover, .dropdown-item:focus{
+    color: #FFF!important;
+}
+
+
+/*-----------operation--------*/
+.schedule-container {
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 20px;
+  background: #1b2434;
+  border-radius: 10px;
+  box-shadow: 0px 0px 10px rgba(0,0,0,0.5);
+}
+
+h2, h3 {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+input[type="time"], input[type="text"], select {
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: #2a3448;
+  color: #fff;
+}
+
+.days {
+  display: flex;
+  gap: 8px;
+}
+
+.days label {
+  font-size: 12px;
+}
+
+button {
+  background: #00b4ff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #fff;
+  font-weight: bold;
+}
+
+
+/*-----------operation--------*/
